@@ -1,0 +1,19 @@
+{
+  "configurations": [
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Launch Marumo Booker Console App",
+      "command": "pnpm run dev",
+      "presentation": {
+        "hidden": true
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch Marumo Booker",
+      "configurations": ["Launch Marumo Booker Console App"]
+    }
+  ]
+}
