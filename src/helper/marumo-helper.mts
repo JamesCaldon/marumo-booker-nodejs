@@ -26,12 +26,35 @@ export class MarumoHelper {
   }
 
   async startPolling(pollingRateInMs: number): Promise<void> {
+    if (!this.discordHelper.loggedIn) {
+      await this.discordHelper.login();
+    }
+
+    while (!this.discordHelper.ready) {
+      await setTimeout(1000);
+    }
+
     while (!this.stop) {
-      var today = DateTime.now();
-      var availableMonths = await this.fetchMonthGroup(today.year, today.month);
+      var today = DateTime.now().plus({ month: 3 });
+
+      var availableMonths = (
+        await Promise.all(
+          [...Array(5).keys()]
+            .map((i) => today.plus({ month: i }))
+            .map(async (d) => this.fetchMonthGroup(d.year, d.month))
+        )
+      )
+        .filter((m) => m !== undefined)
+        .reduce<MonthAvailGroups | undefined>(
+          (pm, cm) => Object.assign(pm ?? {}, cm),
+          undefined
+        );
 
       if (availableMonths == undefined) {
         await setTimeout(pollingRateInMs);
+        await this.discordHelper.broadcast(
+          "Fetch returned no results: we might be rate limited!"
+        );
         continue;
       }
 
@@ -71,7 +94,9 @@ export class MarumoHelper {
     year: number,
     month: number
   ): Promise<MonthAvailGroups | undefined> {
-    const response = await axios.post<MonthAvailGroups>(
+    console.log(year);
+    console.log(month);
+    const response = await axios.post<MonthAvailGroups | string>(
       "https://obee.com.au/marumo/ajax/ajaxMonthAvailGroup.php",
       {
         year: year,
@@ -97,11 +122,18 @@ export class MarumoHelper {
 
     if (response.status != HttpStatusCode.Ok) {
       console.log(
-        `Response from Marumo contains unexpected status: ${response.status} - ${response.statusText}`
+        `Response from Marumo contains unexpected status: ${response.status} - ${response.statusText} - ${response.data}`
       );
       return undefined;
     }
 
-    return response.data;
+    if (response.data == "Not allowed.") {
+      console.log(
+        `Response from Marumo contains unexpected payload: ${response.status} - ${response.statusText} - ${response.data}`
+      );
+      return undefined;
+    }
+
+    return response.data as unknown as MonthAvailGroups;
   }
 }
